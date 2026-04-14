@@ -35,9 +35,11 @@ nano config.py
 - Install IP Webcam app on Android
 - Start server in app
 - Note the IP address shown
-### 4. Run server
-python3 server.py &
-cd web && python3 -m http.server 9090
+### 4. Run
+```
+chmod +x run.sh
+./run.sh
+```
 
 ### 5. Access dashboard
 http://PI_IP:9090
