@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Camera — IR Lab</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:#0a0a0f; --surface:#13131a; --card:#1a1a24;
+      --border:#2a2a3a; --purple:#7c3aed; --purple-dim:#4c1d95;
+      --green:#22c55e; --red:#ef4444; --amber:#f59e0b;
+      --text:#e2e8f0; --muted:#64748b;
+    }
+    body { background:var(--bg); color:var(--text);
+           font-family:system-ui,sans-serif; min-height:100vh; }
+
+    /* LOGIN */
+    #login-page { min-height:100vh; display:flex;
+                  align-items:center; justify-content:center; padding:24px; }
+    .login-box { background:var(--surface); border:1px solid var(--border);
+                 border-radius:16px; padding:40px 36px;
+                 width:100%; max-width:360px; }
+    .logo { width:52px; height:52px; background:var(--purple-dim);
+            border:1px solid var(--purple); border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            margin-bottom:24px; }
+    .login-box h1 { font-size:20px; font-weight:600; margin-bottom:6px; }
+    .login-box p  { font-size:14px; color:var(--muted); margin-bottom:28px; }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:12px; color:var(--muted);
+                   margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em; }
+    .field input { width:100%; padding:11px 14px;
+                   background:var(--card); border:1px solid var(--border);
+                   border-radius:8px; color:var(--text); font-size:14px; outline:none; }
+    .field input:focus { border-color:var(--purple); }
+    #login-err { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);
+                 border-radius:8px; padding:10px 14px; font-size:13px;
+                 color:var(--red); margin-bottom:16px; display:none; }
+    .btn-primary { width:100%; padding:12px; background:var(--purple);
+                   border:none; border-radius:8px; color:#fff;
+                   font-size:14px; font-weight:500; cursor:pointer; }
+    .btn-primary:hover { opacity:.85; }
+    .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* DASHBOARD */
+    #dashboard { display:none; flex-direction:column; min-height:100vh; }
+    .topbar { background:var(--surface); border-bottom:1px solid var(--border);
+              padding:0 24px; height:56px; display:flex;
+              align-items:center; justify-content:space-between;
+              position:sticky; top:0; z-index:10; }
+    .topbar h1 { font-size:15px; font-weight:600; }
+    .badge { display:flex; align-items:center; gap:6px; padding:5px 12px;
+             background:var(--card); border:1px solid var(--border);
+             border-radius:20px; font-size:12px; }
+    .dot { width:7px; height:7px; border-radius:50%;
+           background:var(--red); transition:all .3s; }
+    .dot.live { background:var(--green); box-shadow:0 0 8px var(--green); }
+    .btn-sm { padding:6px 14px; background:var(--card);
+              border:1px solid var(--border); border-radius:8px;
+              color:var(--text); font-size:13px; cursor:pointer; }
+    .btn-sm:hover { border-color:var(--purple); }
+
+    /* CONTENT */
+    .content { display:grid; grid-template-columns:1fr 290px;
+               gap:20px; padding:20px 24px; flex:1; }
+    .video-wrap { background:#000; border:1px solid var(--border);
+                  border-radius:12px; overflow:hidden;
+                  aspect-ratio:16/9; position:relative; }
+    #cam-video { width:100%; height:100%; object-fit:cover; display:block; }
+    .video-hud { position:absolute; top:12px; left:12px;
+                 display:flex; gap:8px; }
+    .hud-pill { padding:3px 10px; border-radius:20px; font-size:11px;
+                font-weight:600; background:rgba(0,0,0,.75);
+                border:1px solid rgba(255,255,255,.1); }
+    .hud-pill.live   { color:var(--green); border-color:rgba(34,197,94,.4); }
+    .hud-pill.offline{ color:var(--red); }
+    .offline-overlay { position:absolute; inset:0; display:flex;
+                       flex-direction:column; align-items:center;
+                       justify-content:center; gap:12px; }
+    .offline-icon { width:56px; height:56px; border-radius:50%;
+                    background:rgba(239,68,68,.1);
+                    border:1px solid rgba(239,68,68,.3);
+                    display:flex; align-items:center; justify-content:center; }
+    .offline-txt { font-size:14px; color:var(--muted); }
+    .ctrl-row { display:flex; gap:10px; margin-top:12px; }
+    .ctrl-btn { flex:1; padding:10px; background:var(--card);
+                border:1px solid var(--border); border-radius:8px;
+                color:var(--text); font-size:13px; font-weight:500;
+                cursor:pointer; text-align:center; }
+    .ctrl-btn:hover { border-color:var(--purple); background:var(--purple-dim); }
+    .ctrl-btn.primary{ background:var(--purple); border-color:var(--purple); }
+
+    /* SIDEBAR */
+    .sidebar { display:flex; flex-direction:column; gap:12px; }
+    .card { background:var(--card); border:1px solid var(--border);
+            border-radius:12px; padding:16px; }
+    .card-title { font-size:11px; font-weight:500; color:var(--muted);
+                  letter-spacing:.08em; text-transform:uppercase;
+                  margin-bottom:14px; }
+    .stat { display:flex; justify-content:space-between;
+            align-items:center; margin-bottom:10px; }
+    .stat:last-child { margin-bottom:0; }
+    .stat-k { font-size:13px; color:var(--muted); }
+    .stat-v { font-size:13px; font-weight:500; }
+    .stat-v.green { color:var(--green); }
+    .stat-v.red   { color:var(--red); }
+    .stat-v.amber { color:var(--amber); }
+    .log-box { background:#060609; border:1px solid #1a1a2a;
+               border-radius:8px; padding:10px 12px;
+               font-family:monospace; font-size:11px; color:#4ade80;
+               max-height:150px; overflow-y:auto; line-height:1.7; }
+    .log-warn { color:var(--amber); }
+    .log-err  { color:var(--red); }
+
+    @media(max-width:680px){
+      .content{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-box">
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="#a78bfa" stroke-width="1.5"/>
+        <circle cx="12" cy="12" r="4" fill="#a78bfa"/>
+      </svg>
+    </div>
+    <h1>Security Camera</h1>
+    <p>Sign in to view the live feed</p>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="f-user" placeholder="admin">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="f-pass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="login-err"></div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign in</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <h1>IR Lab — Security Camera</h1>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="badge">
+        <div class="dot" id="s-dot"></div>
+        <span id="s-txt">Offline</span>
+      </div>
+      <button class="btn-sm" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div>
+      <div class="video-wrap">
+        <video id="cam-video" autoplay playsinline muted></video>
+        <div class="video-hud">
+          <span class="hud-pill offline" id="live-pill">OFFLINE</span>
+          <span class="hud-pill" id="res-pill">—</span>
+        </div>
+        <div class="offline-overlay" id="offline-ov">
+          <div class="offline-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-width="1.5"/>
+              <line x1="8" y1="8" x2="16" y2="16" stroke="#ef4444" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <span class="offline-txt" id="offline-msg">Press Connect to start</span>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn primary" id="conn-btn" onclick="connectStream()">Connect</button>
+        <button class="ctrl-btn" id="disconn-btn" onclick="disconnectStream()" style="display:none">Disconnect</button>
+        <button class="ctrl-btn" id="disconn-btn" onclick="disconnectStream()">Disconnect</button>
+        <button class="ctrl-btn" onclick="takeSnap()">Snapshot</button>
+        <button class="ctrl-btn" onclick="toggleMute()" id="mute-btn">Unmute</button>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Stream info</div>
+        <div class="stat"><span class="stat-k">State</span>      <span class="stat-v green" id="i-state">—</span></div>
+        <div class="stat"><span class="stat-k">Camera</span>     <span class="stat-v">Phone IP Cam</span></div>
+        <div class="stat"><span class="stat-k">Protocol</span>   <span class="stat-v">WebRTC</span></div>
+        <div class="stat"><span class="stat-k">Relay</span>      <span class="stat-v">Anedya TLS</span></div>
+        <div class="stat"><span class="stat-k">Resolution</span> <span class="stat-v" id="i-res">—</span></div>
+        <div class="stat"><span class="stat-k">Uptime</span>     <span class="stat-v amber" id="i-up">—</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Security</div>
+        <div class="stat"><span class="stat-k">Auth</span>   <span class="stat-v green">JWT ✓</span></div>
+        <div class="stat"><span class="stat-k">Tunnel</span> <span class="stat-v green">TLS ✓</span></div>
+        <div class="stat"><span class="stat-k">CORS</span>   <span class="stat-v green">Enabled ✓</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Event log</div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<canvas id="snap-c" style="display:none"></canvas>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+// Pehle local test karo, phir Anedya URL se replace karo
+const RELAY_URL = "http://security-cam.local:8080";
+// Jab Anedya URL mile:
+// const RELAY_URL = "https://xxxxx.relay.anedya.io";
+
+// ── STATE ───────────────────────────────────────────────
+let token = null, pc = null, muted = true;
+let startTime = null, uptimer = null;
+
+// ── LOG ─────────────────────────────────────────────────
+function log(msg, type="info"){
+  const box  = document.getElementById("log-box");
+  const line = document.createElement("div");
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  if(type==="warn") line.classList.add("log-warn");
+  if(type==="err")  line.classList.add("log-err");
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── LOGIN ───────────────────────────────────────────────
+async function doLogin(){
+  const btn  = document.getElementById("login-btn");
+  const user = document.getElementById("f-user").value.trim();
+  const pass = document.getElementById("f-pass").value;
+  const err  = document.getElementById("login-err");
+
+  if(!user||!pass){ showErr("Username aur password daalo"); return; }
+  btn.disabled=true; btn.textContent="Signing in…";
+  err.style.display="none";
+
+  try{
+    const res  = await fetch(`${RELAY_URL}/login`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username:user, password:pass})
+    });
+    const data = await res.json();
+    if(res.ok && data.token){
+      token = data.token;
+      sessionStorage.setItem("cam_tok", token);
+      document.getElementById("login-page").style.display = "none";
+      document.getElementById("dashboard").style.display  = "flex";
+      log("Login successful — " + user);
+    } else {
+      showErr(data.error || "Login failed");
+    }
+  } catch(e){
+    showErr("Server se connect nahi ho raha. Pi chal raha hai?");
+  }
+  btn.disabled=false; btn.textContent="Sign in";
+}
+
+function showErr(msg){
+  const el=document.getElementById("login-err");
+  el.textContent=msg; el.style.display="block";
+}
+
+function doLogout(){
+  sessionStorage.removeItem("cam_tok");
+  token=null;
+  if(pc) pc.close();
+  stopTimer();
+  document.getElementById("dashboard").style.display = "none";
+  document.getElementById("login-page").style.display = "flex";
+}
+
+// ── WEBRTC ──────────────────────────────────────────────
+async function connectStream(){
+  if(pc){ pc.close(); pc=null; }
+  const btn=document.getElementById("conn-btn");
+  btn.textContent="Connecting…"; btn.disabled=true;
+  setStatus("offline");
+  log("WebRTC connection shuru...");
+
+  pc = new RTCPeerConnection({
+    iceServers:[
+        {urls:"stun:stun.l.google.com:19302"},
+        {
+            urls:"turn:turn1.ap-in-1.anedya.io",
+            username:"7ZdnauGR2Xzs:1776161882",
+            credential:"8e1b032cce2eeb60a3252ee0b239072fb0c5c7bce230e4f47110efb614c0dd5f"
+        }
+    ]
+  });
+
+  pc.ontrack = (e)=>{
+    if(e.track.kind!=="video") return;
+    const v=document.getElementById("cam-video");
+    v.srcObject=e.streams[0];
+    v.onloadedmetadata=()=>{
+      setStatus("live");
+      const res=`${v.videoWidth}×${v.videoHeight}`;
+      document.getElementById("i-res").textContent=res;
+      document.getElementById("res-pill").textContent=res;
+      startTimer();
+      log("Stream live — "+res);
+    };
+  };
+
+  pc.onconnectionstatechange=()=>{
+    const s=pc.connectionState;
+    document.getElementById("i-state").textContent=s;
+    log("Connection: "+s, s==="failed"?"err":"info");
+    if(s==="connected"){ btn.textContent="Reconnect"; btn.disabled=false; }
+    if(["failed","disconnected","closed"].includes(s)){
+      setStatus("offline"); stopTimer();
+      btn.textContent="Connect"; btn.disabled=false;
+      document.getElementById("offline-msg").textContent="Disconnected — reconnecting...";
+      setTimeout(()=>{ if(token) connectStream(); }, 5000);
+    }
+  };
+
+  pc.addTransceiver("video",{direction:"recvonly"});
+  const offer=await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  try{
+    const res=await fetch(`${RELAY_URL}/offer`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+token
+      },
+      body:JSON.stringify({sdp:pc.localDescription.sdp, type:pc.localDescription.type})
+    });
+    const ans=await res.json();
+    if(!res.ok){ log("Server error: "+(ans.error||res.status),"err");
+                 btn.textContent="Connect"; btn.disabled=false; return; }
+    await pc.setRemoteDescription(new RTCSessionDescription(ans));
+    log("SDP done — stream aane wala hai...");
+  } catch(e){
+    log("Network error: "+e.message,"err");
+    btn.textContent="Connect"; btn.disabled=false;
+  }
+}
+
+// ── CONTROLS ────────────────────────────────────────────
+function setStatus(state){
+  const dot=document.getElementById("s-dot");
+  const txt=document.getElementById("s-txt");
+  const pill=document.getElementById("live-pill");
+  const ov=document.getElementById("offline-ov");
+  if(state==="live"){
+    dot.classList.add("live"); txt.textContent="Live";
+    pill.textContent="LIVE"; pill.className="hud-pill live";
+    ov.style.display="none";
+  } else {
+    dot.classList.remove("live"); txt.textContent="Offline";
+    pill.textContent="OFFLINE"; pill.className="hud-pill offline";
+    ov.style.display="flex";
+  }
+}
+
+function toggleMute(){
+  const v=document.getElementById("cam-video");
+  const btn=document.getElementById("mute-btn");
+  muted=!muted; v.muted=muted;
+  btn.textContent=muted?"Unmute":"Mute";
+}
+
+function disconnectStream(){
+  if(pc){ pc.close(); pc=null; }
+  setStatus("offline");
+  stopTimer();
+  const btn=document.getElementById("conn-btn");
+  btn.textContent="Connect";
+  btn.disabled=false;
+  document.getElementById("offline-msg").textContent="Disconnected — press Connect";
+  log("Manually disconnected","warn");
+}
+
+function takeSnap(){
+  const v=document.getElementById("cam-video");
+  const c=document.getElementById("snap-c");
+  if(!v.videoWidth){ log("Koi video nahi hai","warn"); return; }
+  c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext("2d").drawImage(v,0,0);
+  const a=document.createElement("a");
+  a.href=c.toDataURL("image/png");
+  a.download=`snap_${Date.now()}.png`;
+  a.click();
+  log("Snapshot saved");
+}
+
+function startTimer(){
+  startTime=Date.now();
+  uptimer=setInterval(()=>{
+    const s=Math.floor((Date.now()-startTime)/1000);
+    const h=String(Math.floor(s/3600)).padStart(2,"0");
+    const m=String(Math.floor((s%3600)/60)).padStart(2,"0");
+    const sc=String(s%60).padStart(2,"0");
+    document.getElementById("i-up").textContent=`${h}:${m}:${sc}`;
+  },1000);
+}
+function disconnectStream(){
+  if(pc){ pc.close(); pc=null; }
+  setStatus("offline");
+  stopTimer();
+  document.getElementById("conn-btn").style.display="inline";
+  document.getElementById("disconn-btn").style.display="none";
+  document.getElementById("conn-btn").textContent="Connect";
+  document.getElementById("conn-btn").disabled=false;
+  document.getElementById("offline-msg").textContent="Disconnected manually";
+  log("Stream disconnected manually","warn");
+}
+
+function stopTimer(){
+  clearInterval(uptimer);
+  document.getElementById("i-up").textContent="—";
+}
+
+// ── AUTO LOGIN ──────────────────────────────────────────
+window.onload=()=>{
+  const saved=sessionStorage.getItem("cam_tok");
+  if(saved){
+    token=saved;
+    document.getElementById("login-page").style.display="none";
+    document.getElementById("dashboard").style.display="flex";
+    log("Session restored");
+    connectStream();
+  }
+};
+</script>
+</body>
+</html>
