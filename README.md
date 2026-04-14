@@ -26,7 +26,7 @@ A professional IoT security camera system built with Raspberry Pi 5, WebRTC, and
 ## Quick Setup
 
 ### 1. Install dependencies
-pip3 install aiortc aiohttp av opencv-python-headless PyJWT requests --break-system-packages
+pip3 install -r requirements.txt --break-system-packages
 pip3 install git+https://github.com/anedyaio/anedya-dev-sdk-python.git --break-system-packages
 ### 2. Configure credentials
 cp config.example.py config.py
